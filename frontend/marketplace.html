@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Gig Marketplace</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        const setHtmlTheme = (theme) => document.documentElement.setAttribute('data-bs-theme', theme);
+        const getSavedTheme = () => localStorage.getItem('theme') || 'dark';
+        setHtmlTheme(getSavedTheme());
+    </script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg mb-5 sticky-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand brand-text" href="#">Employee Portal</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto ps-3 border-start">
+                    {% if role == 'admin' %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('employee_list') }}">Employees</a></li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('employee_info', id=session.get('employee_id')) }}">My Profile</a></li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('trainings') }}">Trainings</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('service_record') }}">Service Records</a></li>
+                    <li class="nav-item"><a class="nav-link text-warning fw-medium active" href="{{ url_for('marketplace') }}">Marketplace 🔥</a></li>
+                </ul>
+                <div class="d-flex align-items-center gap-3">
+                    <button id="themeToggle" class="theme-toggle-btn">☀️</button>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm rounded-pill px-3">Logout ({{ role }})</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-semibold m-0">Skill Swap & Gig Marketplace</h3>
+            <button class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#postGigModal">
+                {% if role == 'admin' %}+ Post a Gig{% else %}+ Request a Gig{% endif %}
+            </button>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show mb-4 small" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if recommended %}
+        <div class="mb-5">
+            <h5 class="fw-semibold mb-3 text-warning">✨ Recommended for You</h5>
+            <div class="row g-4">
+                {% for gig in recommended %}
+                <div class="col-md-4">
+                    <div class="tech-card border border-warning border-opacity-25 h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold m-0">{{ gig.title }}</h6>
+                            <span class="tech-badge bg-success bg-opacity-25 text-success">${{ gig.fee }}</span>
+                        </div>
+                        <p class="text-secondary small mb-3">{{ gig.description }}</p>
+                        <form action="{{ url_for('apply_gig', gig_id=gig.id) }}" method="POST">
+                            <button type="submit" class="btn btn-sm btn-warning bg-opacity-10 text-warning border-warning rounded-pill px-3 w-100" {% if gig.id in my_apps %}disabled{% endif %}>
+                                {{ 'Applied' if gig.id in my_apps else 'Apply Now' }}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <ul class="nav nav-pills mb-4 gap-2" id="gigTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#open">Open Gigs</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#myGigs">{% if role == 'admin' %}Manage Gigs{% else %}My Posted Gigs{% endif %}</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#inProgress">In Progress</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#completed">Completed</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="gigTabsContent">
+            <!-- Open Gigs Tab -->
+            <div class="tab-pane fade show active" id="open">
+                <div class="row g-4">
+                    {% for gig in gigs if gig.status == 'Open' %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="tech-card h-100 p-4">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h6 class="fw-bold m-0 text-white">{{ gig.title }}</h6>
+                                <span class="tech-badge bg-success bg-opacity-10 text-success">${{ gig.fee }}</span>
+                            </div>
+                            <small class="text-secondary d-block mb-3">Posted by: {{ gig.first_name }} {{ gig.last_name }}</small>
+                            <p class="text-secondary small mb-4">{{ gig.description }}</p>
+                            
+                            {% if current_emp and gig.posted_by != current_emp %}
+                            <form action="{{ url_for('apply_gig', gig_id=gig.id) }}" method="POST">
+                                <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill w-100" {% if gig.id in my_apps %}disabled{% endif %}>
+                                    {{ 'Applied' if gig.id in my_apps else 'Apply' }}
+                                </button>
+                            </form>
+                            {% elif gig.posted_by == current_emp %}
+                                <button class="btn btn-sm btn-secondary rounded-pill w-100" disabled>My Gig</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 py-5 text-center text-secondary tech-card">
+                        <p class="m-0">No open gigs at the moment.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- My Posted Gigs / Manage Gigs Tab -->
+            <div class="tab-pane fade" id="myGigs">
+                <div class="row g-4">
+                    {% for gig in gigs if (gig.posted_by == current_emp or role == 'admin') and gig.status == 'Pending Approval' %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="tech-card h-100 p-4 border border-secondary border-opacity-50">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h6 class="fw-bold m-0 text-secondary">{{ gig.title }}</h6>
+                                <span class="tech-badge bg-secondary bg-opacity-10 text-secondary">Pending Request</span>
+                            </div>
+                            <p class="text-secondary small mb-3">{{ gig.description }}</p>
+                            {% if role == 'admin' %}
+                            <form action="{{ url_for('approve_gig', gig_id=gig.id) }}" method="POST">
+                                <button type="submit" class="btn btn-sm btn-success rounded-pill w-100">Approve & Open Gig</button>
+                            </form>
+                            {% else %}
+                            <div class="alert alert-secondary bg-transparent border-secondary border-opacity-25 small mb-0 p-2 text-center text-secondary">Awaiting Admin Approval</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% for gig in gigs if (gig.posted_by == current_emp or role == 'admin') and gig.status == 'Open' %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="tech-card h-100 p-4 border border-primary border-opacity-25">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h6 class="fw-bold m-0">{{ gig.title }}</h6>
+                                <span class="tech-badge bg-primary bg-opacity-10 text-primary">{{ 'Your Gig' if gig.posted_by == current_emp else 'Manage Gig' }}</span>
+                            </div>
+                            <p class="text-secondary small mb-3">{{ gig.description }}</p>
+                            
+                            <hr class="border-secondary opacity-25">
+                            <h6 class="small fw-semibold mb-2 text-warning">Applicants:</h6>
+                            <div class="d-flex flex-column gap-2">
+                                {% set ns = namespace(found=false) %}
+                                {% for app in gig_applications if app.gig_id == gig.id %}
+                                    {% set ns.found = true %}
+                                    <div class="d-flex justify-content-between align-items-center rounded border border-secondary border-opacity-25 p-2">
+                                        <span class="small">{{ app.first_name }} {{ app.last_name }}</span>
+                                        <form action="{{ url_for('accept_gig_application', app_id=app.id) }}" method="POST">
+                                            <button type="submit" class="btn btn-sm btn-success py-0 px-3 rounded-pill small">Accept</button>
+                                        </form>
+                                    </div>
+                                {% endfor %}
+                                {% if not ns.found %}
+                                    <div class="alert alert-secondary bg-transparent border-secondary border-opacity-25 small mb-0 p-2 text-center text-secondary">
+                                        Waiting for applicants...
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 py-5 text-center text-secondary tech-card">
+                        <p class="m-0">No manageable ongoing gigs found.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- In Progress Tab -->
+            <div class="tab-pane fade" id="inProgress">
+                <div class="row g-4">
+                    {% for gig in gigs if gig.status in ['In Progress', 'Awaiting Review'] %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="tech-card h-100 p-4 border border-warning border-opacity-25">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h6 class="fw-bold mb-2">{{ gig.title }}</h6>
+                                <span class="tech-badge {{ 'bg-danger text-danger' if gig.status == 'Awaiting Review' else 'bg-warning text-warning' }} bg-opacity-10">{{ gig.status }}</span>
+                            </div>
+                            <small class="text-secondary d-block mb-3">Posted by: {{ gig.first_name }} {{ gig.last_name }}</small>
+                            <p class="text-secondary small mb-3">{{ gig.description }}</p>
+                            
+                            {% if current_emp == gig.awarded_to and gig.status == 'In Progress' %}
+                            <form action="{{ url_for('submit_work', gig_id=gig.id) }}" method="POST">
+                                <button type="submit" class="btn btn-sm btn-success rounded-pill w-100 text-white">Submit Work</button>
+                            </form>
+                            {% elif current_emp == gig.awarded_to and gig.status == 'Awaiting Review' %}
+                                <div class="tech-badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 text-center d-block rounded-pill">Awaiting Admin Verification</div>
+                            {% endif %}
+
+                            {% if (current_emp == gig.posted_by or role == 'admin') and gig.status == 'Awaiting Review' %}
+                            <hr class="border-secondary opacity-25">
+                            <form action="{{ url_for('complete_gig', gig_id=gig.id) }}" method="POST">
+                                <div class="mb-2">
+                                    <label class="form-label small text-secondary">Rate the worker (1-5)</label>
+                                    <select name="rating" class="form-select form-select-sm bg-dark text-white border-secondary" required>
+                                        <option value="5">⭐⭐⭐⭐⭐</option>
+                                        <option value="4">⭐⭐⭐⭐</option>
+                                        <option value="3">⭐⭐⭐</option>
+                                        <option value="2">⭐⭐</option>
+                                        <option value="1">⭐</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-success rounded-pill w-100 text-white">Verify Completion & Rate</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 py-5 text-center text-secondary tech-card">
+                        <p class="m-0">No gigs in progress or awaiting review.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Completed Tab -->
+            <div class="tab-pane fade" id="completed">
+                <div class="table-responsive tech-card p-0">
+                    <table class="table table-hover m-0 align-middle small">
+                        <thead class="text-secondary border-0">
+                            <tr>
+                                <th class="ps-4 border-0 py-3">Gig Title</th>
+                                <th class="border-0">Posted By</th>
+                                <th class="border-0">Fee Awarded</th>
+                                <th class="border-0">Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for gig in gigs if gig.status == 'Completed' %}
+                            <tr>
+                                <td class="ps-4 fw-medium">{{ gig.title }}</td>
+                                <td class="text-secondary">{{ gig.first_name }} {{ gig.last_name }}</td>
+                                <td class="text-success fw-medium">${{ gig.fee }}</td>
+                                <td>{% if gig.rating %}<span class="text-warning">{{ "⭐" * gig.rating }}</span>{% else %}-{% endif %}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted border-0">No completed gigs.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Post Gig Modal -->
+        <div class="modal fade" id="postGigModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content tech-card bg-dark text-white border border-secondary border-opacity-25">
+                    <div class="modal-header border-secondary border-opacity-25">
+                        <h5 class="modal-title">Post a New Gig</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form action="{{ url_for('post_gig') }}" method="POST">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label small text-secondary">Gig Title</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" name="title" required placeholder="e.g. Need help with Excel Macros">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small text-secondary">Description</label>
+                                <textarea class="form-control bg-dark text-white border-secondary" name="description" rows="3" required placeholder="Describe task details, expected outcome..."></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small text-secondary">Fee / Payment ($)</label>
+                                <input type="number" class="form-control bg-dark text-white border-secondary" name="fee" value="10" min="1" max="1000" step="1" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-secondary border-opacity-25">
+                            <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4">Submit Request</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('themeToggle');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = getSavedTheme() === 'dark' ? '☀️' : '🌙';
+                toggleBtn.addEventListener('click', () => {
+                    const newTheme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                    setHtmlTheme(newTheme);
+                    localStorage.setItem('theme', newTheme);
+                    toggleBtn.innerHTML = newTheme === 'dark' ? '☀️' : '🌙';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
