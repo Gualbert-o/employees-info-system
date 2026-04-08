@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Employee Information System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        const setHtmlTheme = (theme) => document.documentElement.setAttribute('data-bs-theme', theme);
+        const getSavedTheme = () => localStorage.getItem('theme') || 'dark';
+        setHtmlTheme(getSavedTheme());
+    </script>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg mb-5 sticky-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand brand-text" href="#">Employee Portal</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto ps-3 border-start">
+                    {% if role == 'admin' %}
+                    <li class="nav-item"><a class="nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('employee_list') }}">Employees</a></li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('employee_info', id=session.get('employee_id')) }}">My Profile</a></li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('trainings') }}">Trainings</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('service_record') }}">Service Records</a>
+                    </li>
+                    <li class="nav-item"><a class="nav-link text-warning fw-medium" href="{{ url_for('marketplace') }}">Marketplace 🔥</a></li>
+                </ul>
+                <div class="d-flex align-items-center gap-3">
+                    <button id="themeToggle" class="theme-toggle-btn">☀️</button>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm rounded-pill px-3">Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mb-5">
+        <h3 class="mb-4 fw-semibold">Dashboard</h3>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-4 col-sm-6">
+                <a href="{{ url_for('employee_list', status='Active') }}" class="text-decoration-none text-body">
+                    <div class="tech-card p-4 h-100 p-3">
+                        <h6 class="text-secondary small fw-medium">Total Active</h6>
+                        <div class="display-5 fw-bold text-primary">{{ stats.active }}</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <a href="{{ url_for('employee_list', status='Permanent') }}" class="text-decoration-none text-body">
+                    <div class="tech-card p-3 h-100">
+                        <h6 class="text-secondary small fw-medium">Permanent</h6>
+                        <div class="fs-3 fw-semibold">{{ stats.permanent }}</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <a href="{{ url_for('employee_list', status='Non-Permanent') }}" class="text-decoration-none text-body">
+                    <div class="tech-card p-3 h-100">
+                        <h6 class="text-secondary small fw-medium">Non-Perm</h6>
+                        <div class="fs-3 fw-semibold">{{ stats.non_permanent }}</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <a href="{{ url_for('employee_list', status='Temporary') }}" class="text-decoration-none text-body">
+                    <div class="tech-card p-3 h-100">
+                        <h6 class="text-secondary small fw-medium">Temporary</h6>
+                        <div class="fs-3 fw-semibold">{{ stats.temporary }}</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <a href="{{ url_for('employee_list', status='Separated') }}" class="text-decoration-none text-body">
+                    <div class="tech-card p-3 h-100 border-start border-danger border-4">
+                        <h6 class="text-secondary small fw-medium">Separated</h6>
+                        <div class="fs-3 fw-semibold">{{ stats.separated }}</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <div class="tech-card p-4">
+            <h5 class="mb-4 fw-semibold">Recent Activities</h5>
+            <div class="table-responsive">
+                <table class="table table-hover m-0 align-middle">
+                    <thead class="text-secondary small">
+                        <tr>
+                            <th class="border-0">Action</th>
+                            <th class="border-0">Employee</th>
+                            <th class="border-0">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                        {% for act in activities %}
+                        <tr>
+                            <td>{{ act.activity }}</td>
+                            <td class="fw-medium">{{ act.employee_name }}</td>
+                            <td class="text-secondary">{{ act.date }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted border-0">No activities recorded.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('themeToggle');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = getSavedTheme() === 'dark' ? '☀️' : '🌙';
+                toggleBtn.addEventListener('click', () => {
+                    const newTheme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                    setHtmlTheme(newTheme);
+                    localStorage.setItem('theme', newTheme);
+                    toggleBtn.innerHTML = newTheme === 'dark' ? '☀️' : '🌙';
+                });
+            }
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
